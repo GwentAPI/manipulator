@@ -2,20 +2,25 @@
 
 
 [[projects]]
-  branch = "feature/lastUpdated"
-  name = "github.com/GwentAPI/gwentapi"
-  packages = ["dataLayer/models"]
-  revision = "9251bd5ddbabde0444a015977dd5b330e72fe809"
+  name = "github.com/rainycape/unidecode"
+  packages = ["."]
+  revision = "cb7f23ec59bec0d61b19c56cd88cee3d0cc1870c"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/satori/go.uuid"
+  packages = ["."]
+  revision = "5bf94b69c6b68ee1b541973bb8e1144db23a194b"
 
 [[projects]]
   branch = "v2"
   name = "gopkg.in/mgo.v2"
-  packages = ["bson","internal/json"]
+  packages = [".","bson","internal/json","internal/sasl","internal/scram"]
   revision = "3f83fa5005286a7fe593b055f0d7771a7dce4655"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "0638fb490ecf9f390bcfc70a67546813da808ac449efcf66478cab1627dc3182"
+  inputs-digest = "1ce36e5e32f887bf3bda5d620d89bc77fd0bb804a8d080110eef287a8a976170"
   solver-name = "gps-cdcl"
   solver-version = 1

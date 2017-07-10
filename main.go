@@ -4,16 +4,21 @@ import (
 	"encoding/json"
 	"log"
 	"os"
+	"time"
 )
+
+var filePath string = "0.9.8.json"
+
+const DOMAIN string = "46bf3452-28e7-482c-9bbf-df053873b021"
 
 func main() {
 	var definition map[string]GwentCard
-	fullReadPrint(&definition)
+	readData(&definition)
 	work(definition)
 }
 
-func fullReadPrint(definition *map[string]GwentCard) {
-	file, err := os.Open("1498322680.240085.json")
+func readData(definition *map[string]GwentCard) {
+	file, err := os.Open(filePath)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -25,13 +30,6 @@ func fullReadPrint(definition *map[string]GwentCard) {
 		log.Println(err)
 		return
 	}
-	/*
-		for k, v := range definition {
-			fmt.Println("ID: ", k)
-			fmt.Println(v)
-			break
-		}
-	*/
 
 }
 
@@ -52,29 +50,37 @@ func work(definition map[string]GwentCard) {
 		collectCategories(categories, definition[k])
 	}
 
-	for k := range definition {
-		if !definition[k].Released {
-			log.Println(k)
-		}
+	session, err := CreateSession([]string{"localhost"}, "gwentTest", Authentication{}, false, 10*time.Second)
+	defer session.Close()
+	if err != nil {
+		log.Fatal("Failed to establish mongoDB connection: ", err)
 	}
+	database := session.DB("")
 
-	for k := range categories {
-		log.Println(k)
-	}
+	InsertGenericCollection(database, "groups", groups)
+	InsertGenericCollection(database, "rarities", rarities)
+	InsertGenericCollection(database, "factions", factions)
+	InsertGenericCollection(database, "categories", categories)
 
-	for k := range factions {
-		log.Println(k)
-	}
-
+	InsertCard(database, "cards", definition)
+	InsertVariation(database, "variations", definition)
 }
 
 func deleteUnreleased(input map[string]GwentCard, key string) bool {
+	// Released is an artificial field that was added to the file
+	// We do check it but we still verify each individual variation.
 	if !input[key].Released {
 		delete(input, key)
 		return true
 	}
 	for variationKey, variationValue := range input[key].Variations {
+		// Not BaseSet or not collectible, therefore we want to delete it
+		// since the API only support BaseSet atm.
 		if variationValue.Availability != "BaseSet" || !variationValue.Collectible {
+			// Safety to check if a new set is found that wasn't released yet.
+			// We don't data-mine and we are only interest in the already released card, however they should
+			// Be reported in the case that something changed in the file and it needs to be corrected in the code
+			// Or to warn of an incoming new set to prepare for it.
 			if variationValue.Availability != "NonOwnable" && variationValue.Availability != "Tutorial" {
 				log.Println("Variation not from BaseSet reported.")
 				log.Println("Card: ", input[key].Name["en-US"])
@@ -83,6 +89,8 @@ func deleteUnreleased(input map[string]GwentCard, key string) bool {
 		}
 	}
 
+	// If a variation was deleted and that it resulted in a card having no variation, we delete the card as well
+	// since there's no associated art, rarity, etc.
 	if len(input[key].Variations) == 0 {
 		delete(input, key)
 		return true
@@ -118,6 +126,7 @@ func collectCategories(categories map[string]struct{}, input GwentCard) {
 	}
 }
 
+// The data file doesn't have Scoia'tael spelled correctly, so we rename it.
 func renameScoiatael(input map[string]GwentCard, k string) {
 	if input[k].Faction == "Scoiatael" {
 		tmp := input[k]

@@ -64,8 +64,14 @@
 ## what source location any dependent projects specify.
 # source = "https://github.com/myfork/package.git"
 
-
+[[constraint]]
+  branch = "master"
+  name = "github.com/satori/go.uuid"
 
 [[constraint]]
-  branch = "feature/lastUpdated"
-  name = "github.com/GwentAPI/gwentapi"
+  branch = "v2"
+  name = "gopkg.in/mgo.v2"
+
+[[constraint]]
+  revision = "cb7f23ec59bec0d61b19c56cd88cee3d0cc1870c"
+  name = "github.com/rainycape/unidecode"
