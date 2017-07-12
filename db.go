@@ -40,10 +40,13 @@ func CreateSession(addrs []string, database string, authInfo Authentication, use
 	}
 
 	session, err := mgo.DialWithInfo(dialInfo)
+	if err != nil {
+		return nil, err
+	}
 	session.SetSocketTimeout(10 * time.Second)
 	session.SetMode(mgo.Strong, true)
 	session.SetSafe(&mgo.Safe{WMode: "majority"})
-	return session, err
+	return session, nil
 }
 
 func InsertGenericCollection(db *mgo.Database, collectionName string, names map[string]struct{}) {
@@ -94,6 +97,34 @@ func InsertGenericCollection(db *mgo.Database, collectionName string, names map[
 	}
 }
 
+func EnsureSimpleUniqueIndex(collection *mgo.Collection, key string, name string) error {
+	index := mgo.Index{
+		Key:        []string{key},
+		Unique:     true,
+		Background: true,
+		Name:       name,
+	}
+	err := collection.EnsureIndex(index)
+	if err != nil {
+		log.Println("Problem with index key ", key, " with name ", name, " : ", err)
+	}
+	return err
+}
+
+func EnsureSimpleIndex(collection *mgo.Collection, key string, name string, isUnique bool) error {
+	index := mgo.Index{
+		Key:        []string{key},
+		Unique:     isUnique,
+		Background: true,
+		Name:       name,
+	}
+	err := collection.EnsureIndex(index)
+	if err != nil {
+		log.Println("Problem with index key ", key, " with name ", name, " : ", err)
+	}
+	return err
+}
+
 func InsertCard(db *mgo.Database, collectionName string, cards map[string]GwentCard) {
 	domainUUID, err := uuid.FromString(DOMAIN)
 	if err != nil {
@@ -102,25 +133,23 @@ func InsertCard(db *mgo.Database, collectionName string, cards map[string]GwentC
 
 	collection := db.C(collectionName)
 
-	nameIndex := mgo.Index{
-		Key:        []string{"name"},
-		Unique:     true,
-		Background: true,
-		Name:       "name",
-	}
-
-	uuidIndex := mgo.Index{
-		Key:        []string{"uuid"},
-		Unique:     true,
-		Background: true,
-		Name:       "uuid",
-	}
-
-	errNameIndex := collection.EnsureIndex(nameIndex)
-	errUuidIndex := collection.EnsureIndex(uuidIndex)
+	errNameIndex := EnsureSimpleUniqueIndex(collection, "name.en-US", "name.en-US")
+	errUuidIndex := EnsureSimpleUniqueIndex(collection, "uuid", "uuid")
 	if errNameIndex != nil || errUuidIndex != nil {
 		log.Fatal("Error creating index: ", errNameIndex, " ", errUuidIndex)
 	}
+	EnsureSimpleUniqueIndex(collection, "name.de-DE", "name.de-DE")
+	EnsureSimpleUniqueIndex(collection, "name.fr-FR", "name.fr-FR")
+	EnsureSimpleUniqueIndex(collection, "name.pl-PL", "name.pl-PL")
+	EnsureSimpleUniqueIndex(collection, "name.pt-BR", "name.pt-BR")
+	// Special snowflakes that actually have duplicates names for the same localization.
+	EnsureSimpleIndex(collection, "name.zh-TW", "name.zh-TW", false)
+	EnsureSimpleUniqueIndex(collection, "name.es-ES", "name.es-ES")
+	EnsureSimpleUniqueIndex(collection, "name.es-MX", "name.es-MX")
+	EnsureSimpleUniqueIndex(collection, "name.it-IT", "name.it-IT")
+	EnsureSimpleUniqueIndex(collection, "name.ja-JP", "name.ja-JP")
+	EnsureSimpleUniqueIndex(collection, "name.ru-RU", "name.ru-RU")
+	EnsureSimpleUniqueIndex(collection, "name.zh-CN", "name.zh-CN")
 
 	bulk := collection.Bulk()
 	bulk.Unordered()
@@ -131,7 +160,7 @@ func InsertCard(db *mgo.Database, collectionName string, cards map[string]GwentC
 
 	for _, v := range cards {
 		c := Card{
-			Name:          v.Name["en-US"],
+			Name:          v.Name,
 			UUID:          uuid.NewV5(domainUUID, v.Name["en-US"]).Bytes(),
 			Group:         v.Group,
 			Faction:       v.Faction,
@@ -144,11 +173,11 @@ func InsertCard(db *mgo.Database, collectionName string, cards map[string]GwentC
 			*c.Strength = v.Strength
 		}
 
-		if info, ok := v.Info["en-US"]; ok {
-			c.Info = &info
+		if _, ok := v.Info["en-US"]; ok {
+			c.Info = v.Info
 		}
-		if flavor, ok := v.Flavor["en-US"]; ok {
-			c.Flavor = &flavor
+		if _, ok := v.Flavor["en-US"]; ok {
+			c.Flavor = v.Flavor
 		}
 
 		if len(v.Loyalties) > 0 {
@@ -233,11 +262,11 @@ func InsertVariation(db *mgo.Database, collectionName string, cards map[string]G
 
 	for _, card := range cards {
 		queryResult := Card{}
-		db.C("cards").Find(bson.M{"name": card.Name["en-US"]}).Select(bson.M{"_id": 1}).One(&queryResult)
+		db.C("cards").Find(bson.M{"name.en-US": card.Name["en-US"]}).Select(bson.M{"_id": 1}).One(&queryResult)
 		artUrl := GetArtUrl(card.Name["en-US"])
-		log.Println(artUrl)
+		//log.Println(artUrl)
 		thumbnailUrl := artUrl + "_thumbnail.png"
-		originalSizeUrl := artUrl + ".png"
+		originalSizeUrl := artUrl + "_full.png"
 
 		for _, variation := range card.Variations {
 			// UUID : name + availability
@@ -254,6 +283,7 @@ func InsertVariation(db *mgo.Database, collectionName string, cards map[string]G
 					Premium: variation.Mill.Premium,
 				},
 				Art: Art{
+					Artist:         variation.Art.Artist,
 					FullsizeImage:  &originalSizeUrl,
 					ThumbnailImage: thumbnailUrl,
 				},
@@ -279,5 +309,5 @@ func InsertVariation(db *mgo.Database, collectionName string, cards map[string]G
 func GetArtUrl(cardName string) string {
 	var re = regexp.MustCompile("[^a-z0-9]+")
 	cardName = unidecode.Unidecode(cardName)
-	return strings.Trim(re.ReplaceAllString(strings.ToLower(cardName), "-"), "-")
+	return strings.Trim(re.ReplaceAllString(strings.ToLower(cardName), "_"), "_")
 }

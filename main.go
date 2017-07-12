@@ -2,22 +2,62 @@ package main
 
 import (
 	"encoding/json"
+	"flag"
+	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 )
 
-var filePath string = "0.9.8.json"
+type stringslice []string
+
+func (i *stringslice) String() string {
+	return fmt.Sprintf("%s", *i)
+}
+func (i *stringslice) Set(value string) error {
+	*i = strings.Split(value, ",")
+	return nil
+}
+
+var filePath string = ""
+var addrs stringslice
+var database string
+var useSSL bool
+var timeout time.Duration = 10 * time.Second
 
 const DOMAIN string = "46bf3452-28e7-482c-9bbf-df053873b021"
 
+func init() {
+	flag.StringVar(&filePath, "input", "", "Path to input file")
+	flag.Var(&addrs, "addrs", "List of mongoDB server addresses. Default to localhost on standard mongoDB port")
+	flag.BoolVar(&useSSL, "ssl", false, "Set to true if you require SSL to connect to the database")
+	flag.StringVar(&database, "db", "", "Set the database to use. 'test' is used if not specified")
+
+	flag.Parse()
+}
+
 func main() {
+	start := time.Now()
+
+	if addrs == nil {
+		addrs = []string{"localhost"}
+	}
+	if filePath == "" {
+		fmt.Println("Input file not provided")
+		os.Exit(0)
+	}
+
 	var definition map[string]GwentCard
 	readData(&definition)
 	work(definition)
+
+	elapsed := time.Since(start)
+	log.Printf("Finished in %s", elapsed)
 }
 
 func readData(definition *map[string]GwentCard) {
+	log.Println("Reading file...")
 	file, err := os.Open(filePath)
 	if err != nil {
 		log.Fatal(err)
@@ -30,7 +70,7 @@ func readData(definition *map[string]GwentCard) {
 		log.Println(err)
 		return
 	}
-
+	log.Println("Done")
 }
 
 func work(definition map[string]GwentCard) {
@@ -50,20 +90,24 @@ func work(definition map[string]GwentCard) {
 		collectCategories(categories, definition[k])
 	}
 
-	session, err := CreateSession([]string{"localhost"}, "gwentTest", Authentication{}, false, 10*time.Second)
+	log.Println("Attempting to establish mongoDB session...")
+	session, err := CreateSession(addrs, database, Authentication{}, useSSL, timeout)
 	defer session.Close()
 	if err != nil {
 		log.Fatal("Failed to establish mongoDB connection: ", err)
 	}
 	database := session.DB("")
 
+	log.Println("Upserting a bunch of collections...")
 	InsertGenericCollection(database, "groups", groups)
 	InsertGenericCollection(database, "rarities", rarities)
 	InsertGenericCollection(database, "factions", factions)
 	InsertGenericCollection(database, "categories", categories)
-
+	log.Println("Upserting cards...")
 	InsertCard(database, "cards", definition)
+	log.Println("Upserting variations...")
 	InsertVariation(database, "variations", definition)
+	log.Println("Done")
 }
 
 func deleteUnreleased(input map[string]GwentCard, key string) bool {
