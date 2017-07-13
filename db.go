@@ -283,9 +283,9 @@ func InsertVariation(db *mgo.Database, collectionName string, cards map[string]G
 					Premium: variation.Mill.Premium,
 				},
 				Art: Art{
-					Artist:         variation.Art.Artist,
 					FullsizeImage:  &originalSizeUrl,
 					ThumbnailImage: thumbnailUrl,
+					Artist:         variation.Art.Artist,
 				},
 				Last_Modified: time.Now().UTC(),
 			}
@@ -309,5 +309,5 @@ func InsertVariation(db *mgo.Database, collectionName string, cards map[string]G
 func GetArtUrl(cardName string) string {
 	var re = regexp.MustCompile("[^a-z0-9]+")
 	cardName = unidecode.Unidecode(cardName)
-	return strings.Trim(re.ReplaceAllString(strings.ToLower(cardName), "_"), "_")
+	return strings.Trim(re.ReplaceAllString(strings.ToLower(cardName), "-"), "-")
 }
