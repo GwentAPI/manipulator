@@ -265,8 +265,8 @@ func InsertVariation(db *mgo.Database, collectionName string, cards map[string]G
 		db.C("cards").Find(bson.M{"name.en-US": card.Name["en-US"]}).Select(bson.M{"_id": 1}).One(&queryResult)
 		artUrl := GetArtUrl(card.Name["en-US"])
 		//log.Println(artUrl)
-		thumbnailUrl := artUrl + "_thumbnail.png"
-		originalSizeUrl := artUrl + "_full.png"
+		thumbnailUrl := artUrl + "-thumbnail.png"
+		originalSizeUrl := artUrl + "-full.png"
 
 		for _, variation := range card.Variations {
 			// UUID : name + availability
