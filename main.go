@@ -4,9 +4,15 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"github.com/rainycape/unidecode"
+	"io"
 	"log"
+	"net/http"
 	"os"
+	"path/filepath"
+	"regexp"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -24,6 +30,8 @@ var filePath string = ""
 var addrs stringslice
 var database string
 var useSSL bool
+var downloadImage bool
+var wg sync.WaitGroup
 var timeout time.Duration = 10 * time.Second
 
 const DOMAIN string = "46bf3452-28e7-482c-9bbf-df053873b021"
@@ -33,6 +41,7 @@ func init() {
 	flag.Var(&addrs, "addrs", "List of mongoDB server addresses. Default to localhost on standard mongoDB port")
 	flag.BoolVar(&useSSL, "ssl", false, "Set to true if you require SSL to connect to the database")
 	flag.StringVar(&database, "db", "", "Set the database to use. 'test' is used if not specified")
+	flag.BoolVar(&downloadImage, "artwork", false, "Set to true to download the artworks images")
 
 	flag.Parse()
 }
@@ -52,6 +61,7 @@ func main() {
 	readData(&definition)
 	work(definition)
 
+	wg.Wait()
 	elapsed := time.Since(start)
 	log.Printf("Finished in %s", elapsed)
 }
@@ -84,6 +94,9 @@ func work(definition map[string]GwentCard) {
 			continue
 		}
 		renameScoiatael(definition, k)
+		if downloadImage {
+			queueDownload(definition[k])
+		}
 		collectGroup(groups, definition[k])
 		collectRarity(rarities, definition[k])
 		collectFaction(factions, definition[k])
@@ -177,4 +190,48 @@ func renameScoiatael(input map[string]GwentCard, k string) {
 		tmp.Faction = "Scoia'tael"
 		input[k] = tmp
 	}
+}
+
+func queueDownload(card GwentCard) {
+	for _, variation := range card.Variations {
+		wg.Add(1)
+		fileName := GetArtUrl(card.Name["en-US"]) + "-thumbnail.png"
+		go download_file(variation.Art.Medium, fileName, &wg)
+	}
+}
+
+func download_file(url string, fileName string, wg *sync.WaitGroup) {
+	response, e := http.Get(url)
+
+	if e != nil {
+		log.Println("Error downloading file: ", fileName, e)
+	} else {
+		defer response.Body.Close()
+		dir, _ := filepath.Abs("./artworks/")
+		if _, err := os.Stat(dir); os.IsNotExist(err) {
+			os.Mkdir(dir, os.ModeDir)
+		}
+		path, _ := filepath.Abs("./artworks/" + fileName)
+		file, err := os.Create(path)
+		if err != nil {
+			log.Println("Error creating file: ", path, err)
+		} else {
+			_, err = io.Copy(file, response.Body)
+			if err != nil {
+				log.Println("Error creating file: ", err)
+			}
+		}
+		err = file.Close()
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+
+	wg.Done()
+}
+
+func GetArtUrl(cardName string) string {
+	var re = regexp.MustCompile("[^a-z0-9]+")
+	cardName = unidecode.Unidecode(cardName)
+	return strings.Trim(re.ReplaceAllString(strings.ToLower(cardName), "-"), "-")
 }

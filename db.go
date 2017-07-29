@@ -2,14 +2,11 @@ package main
 
 import (
 	"crypto/tls"
-	"github.com/rainycape/unidecode"
 	"github.com/satori/go.uuid"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"log"
 	"net"
-	"regexp"
-	"strings"
 	"time"
 )
 
@@ -304,10 +301,4 @@ func InsertVariation(db *mgo.Database, collectionName string, cards map[string]G
 	if bulkErr != nil {
 		log.Fatal("Error bulk variation upsert: ", bulkErr)
 	}
-}
-
-func GetArtUrl(cardName string) string {
-	var re = regexp.MustCompile("[^a-z0-9]+")
-	cardName = unidecode.Unidecode(cardName)
-	return strings.Trim(re.ReplaceAllString(strings.ToLower(cardName), "-"), "-")
 }
