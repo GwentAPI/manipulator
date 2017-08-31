@@ -32,7 +32,7 @@ var database string
 var useSSL bool
 var downloadImage bool
 var wg sync.WaitGroup
-var timeout time.Duration = 10 * time.Second
+var timeout time.Duration = 15 * time.Second
 
 const DOMAIN string = "46bf3452-28e7-482c-9bbf-df053873b021"
 
@@ -48,7 +48,6 @@ func init() {
 
 func main() {
 	start := time.Now()
-
 	if addrs == nil {
 		addrs = []string{"localhost"}
 	}
@@ -201,32 +200,41 @@ func queueDownload(card GwentCard) {
 }
 
 func download_file(url string, fileName string, wg *sync.WaitGroup) {
-	response, e := http.Get(url)
+	var retry int = 0
+	const MAX_RETRY int = 3
 
-	if e != nil {
-		log.Println("Error downloading file: ", fileName, e)
-	} else {
-		defer response.Body.Close()
-		dir, _ := filepath.Abs("./artworks/")
-		if _, err := os.Stat(dir); os.IsNotExist(err) {
-			os.Mkdir(dir, os.ModeDir)
+	for retry < MAX_RETRY {
+		if retry != 0 {
+			log.Println("Retrying ", fileName)
 		}
-		path, _ := filepath.Abs("./artworks/" + fileName)
-		file, err := os.Create(path)
-		if err != nil {
-			log.Println("Error creating file: ", path, err)
+		response, e := http.Get(url)
+
+		if e != nil {
+			log.Println("Error downloading file: ", fileName, e)
+			retry++
 		} else {
-			_, err = io.Copy(file, response.Body)
-			if err != nil {
-				log.Println("Error creating file: ", err)
+			dir, _ := filepath.Abs("./artworks/")
+			if _, err := os.Stat(dir); os.IsNotExist(err) {
+				os.Mkdir(dir, os.ModeDir)
 			}
-		}
-		err = file.Close()
-		if err != nil {
-			log.Fatal(err)
+			path, _ := filepath.Abs("./artworks/" + fileName)
+			file, err := os.Create(path)
+			if err != nil {
+				log.Println("Error creating file: ", path, err)
+			} else {
+				_, err = io.Copy(file, response.Body)
+				if err != nil {
+					log.Println("Error creating file: ", err)
+				}
+			}
+			err = file.Close()
+			if err != nil {
+				log.Fatal(err)
+			}
+			response.Body.Close()
+			break
 		}
 	}
-
 	wg.Done()
 }
 
