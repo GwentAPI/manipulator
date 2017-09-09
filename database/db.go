@@ -9,6 +9,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"log"
 	"net"
+	"strconv"
 	"time"
 )
 
@@ -268,12 +269,14 @@ func (c ReposClient) InsertVariation(db *mgo.Database, collectionName string, ca
 		db.C("cards").Find(bson.M{"name.en-US": card.Name["en-US"]}).Select(bson.M{"_id": 1}).One(&queryResult)
 		artUrl := common.GetArtUrl(card.Name["en-US"])
 		//log.Println(artUrl)
-		thumbnailUrl := artUrl + "-thumbnail.png"
-		mediumSizeUrl := artUrl + "-medium.png"
-		originalSizeUrl := artUrl + "-full.png"
-
+		var numVariation int = 0
 		for _, variation := range card.Variations {
 			// UUID : name + availability
+			numVariation++
+			//thumbnailUrl := artUrl + "-thumbnail.png"
+			mediumSizeUrl := artUrl + "-" + strconv.Itoa(numVariation) + "-medium.png"
+			originalSizeUrl := artUrl + "-" + strconv.Itoa(numVariation) + "-full.png"
+
 			v := models.Variation{
 				UUID:         uuid.NewV5(domainUUID, card.Name["en-US"]+variation.Availability).Bytes(),
 				Availability: variation.Availability,
@@ -289,7 +292,7 @@ func (c ReposClient) InsertVariation(db *mgo.Database, collectionName string, ca
 				Art: models.Art{
 					FullsizeImage:   &originalSizeUrl,
 					MediumsizeImage: mediumSizeUrl,
-					ThumbnailImage:  thumbnailUrl,
+					ThumbnailImage:  mediumSizeUrl,
 					Artist:          variation.Art.Artist,
 				},
 				Last_Modified: time.Now().UTC(),
