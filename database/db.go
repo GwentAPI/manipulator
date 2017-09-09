@@ -1,7 +1,9 @@
-package main
+package database
 
 import (
 	"crypto/tls"
+	"github.com/GwentAPI/gwentapi/manipulator/common"
+	"github.com/GwentAPI/gwentapi/manipulator/models"
 	"github.com/satori/go.uuid"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -16,7 +18,11 @@ type Authentication struct {
 	Password string
 }
 
-func CreateSession(addrs []string, database string, authInfo Authentication, useSSl bool, timeout time.Duration) (*mgo.Session, error) {
+const DOMAIN string = "46bf3452-28e7-482c-9bbf-df053873b021"
+
+type ReposClient struct{}
+
+func (c ReposClient) CreateSession(addrs []string, database string, authInfo Authentication, useSSl bool, timeout time.Duration) (*mgo.Session, error) {
 
 	tlsConfig := &tls.Config{}
 
@@ -46,7 +52,7 @@ func CreateSession(addrs []string, database string, authInfo Authentication, use
 	return session, nil
 }
 
-func InsertGenericCollection(db *mgo.Database, collectionName string, names map[string]struct{}) {
+func (c ReposClient) InsertGenericCollection(db *mgo.Database, collectionName string, names map[string]struct{}) {
 	domainUUID, err := uuid.FromString(DOMAIN)
 	if err != nil {
 		log.Fatal("DomainUUID error: ", err)
@@ -78,7 +84,7 @@ func InsertGenericCollection(db *mgo.Database, collectionName string, names map[
 	bulk.Unordered()
 
 	for key, _ := range names {
-		generic := GenericCollection{}
+		generic := models.GenericCollection{}
 
 		generic.Name = key
 		generic.Last_modified = time.Now().UTC()
@@ -94,7 +100,7 @@ func InsertGenericCollection(db *mgo.Database, collectionName string, names map[
 	}
 }
 
-func EnsureSimpleUniqueIndex(collection *mgo.Collection, key string, name string) error {
+func (c ReposClient) EnsureSimpleUniqueIndex(collection *mgo.Collection, key string, name string) error {
 	index := mgo.Index{
 		Key:        []string{key},
 		Unique:     true,
@@ -108,7 +114,7 @@ func EnsureSimpleUniqueIndex(collection *mgo.Collection, key string, name string
 	return err
 }
 
-func EnsureSimpleIndex(collection *mgo.Collection, key string, name string, isUnique bool) error {
+func (c ReposClient) EnsureSimpleIndex(collection *mgo.Collection, key string, name string, isUnique bool) error {
 	index := mgo.Index{
 		Key:        []string{key},
 		Unique:     isUnique,
@@ -122,7 +128,7 @@ func EnsureSimpleIndex(collection *mgo.Collection, key string, name string, isUn
 	return err
 }
 
-func InsertCard(db *mgo.Database, collectionName string, cards map[string]GwentCard) {
+func (c ReposClient) InsertCard(db *mgo.Database, collectionName string, cards map[string]models.GwentCard) {
 	domainUUID, err := uuid.FromString(DOMAIN)
 	if err != nil {
 		log.Fatal("DomainUUID error: ", err)
@@ -130,23 +136,23 @@ func InsertCard(db *mgo.Database, collectionName string, cards map[string]GwentC
 
 	collection := db.C(collectionName)
 
-	errNameIndex := EnsureSimpleUniqueIndex(collection, "name.en-US", "name.en-US")
-	errUuidIndex := EnsureSimpleUniqueIndex(collection, "uuid", "uuid")
+	errNameIndex := c.EnsureSimpleUniqueIndex(collection, "name.en-US", "name.en-US")
+	errUuidIndex := c.EnsureSimpleUniqueIndex(collection, "uuid", "uuid")
 	if errNameIndex != nil || errUuidIndex != nil {
 		log.Fatal("Error creating index: ", errNameIndex, " ", errUuidIndex)
 	}
-	EnsureSimpleUniqueIndex(collection, "name.de-DE", "name.de-DE")
-	EnsureSimpleUniqueIndex(collection, "name.fr-FR", "name.fr-FR")
-	EnsureSimpleUniqueIndex(collection, "name.pl-PL", "name.pl-PL")
-	EnsureSimpleUniqueIndex(collection, "name.pt-BR", "name.pt-BR")
+	c.EnsureSimpleUniqueIndex(collection, "name.de-DE", "name.de-DE")
+	c.EnsureSimpleUniqueIndex(collection, "name.fr-FR", "name.fr-FR")
+	c.EnsureSimpleUniqueIndex(collection, "name.pl-PL", "name.pl-PL")
+	c.EnsureSimpleUniqueIndex(collection, "name.pt-BR", "name.pt-BR")
 	// Special snowflakes that actually have duplicates names for the same localization.
-	EnsureSimpleIndex(collection, "name.zh-TW", "name.zh-TW", false)
-	EnsureSimpleUniqueIndex(collection, "name.es-ES", "name.es-ES")
-	EnsureSimpleUniqueIndex(collection, "name.es-MX", "name.es-MX")
-	EnsureSimpleUniqueIndex(collection, "name.it-IT", "name.it-IT")
-	EnsureSimpleUniqueIndex(collection, "name.ja-JP", "name.ja-JP")
-	EnsureSimpleUniqueIndex(collection, "name.ru-RU", "name.ru-RU")
-	EnsureSimpleUniqueIndex(collection, "name.zh-CN", "name.zh-CN")
+	c.EnsureSimpleIndex(collection, "name.zh-TW", "name.zh-TW", false)
+	c.EnsureSimpleUniqueIndex(collection, "name.es-ES", "name.es-ES")
+	c.EnsureSimpleUniqueIndex(collection, "name.es-MX", "name.es-MX")
+	c.EnsureSimpleUniqueIndex(collection, "name.it-IT", "name.it-IT")
+	c.EnsureSimpleUniqueIndex(collection, "name.ja-JP", "name.ja-JP")
+	c.EnsureSimpleUniqueIndex(collection, "name.ru-RU", "name.ru-RU")
+	c.EnsureSimpleUniqueIndex(collection, "name.zh-CN", "name.zh-CN")
 
 	bulk := collection.Bulk()
 	bulk.Unordered()
@@ -156,7 +162,7 @@ func InsertCard(db *mgo.Database, collectionName string, cards map[string]GwentC
 	categoryIDs := map[string]bson.ObjectId{}
 
 	for _, v := range cards {
-		c := Card{
+		c := models.Card{
 			Name:          v.Name,
 			UUID:          uuid.NewV5(domainUUID, v.Name["en-US"]).Bytes(),
 			Group:         v.Group,
@@ -184,7 +190,7 @@ func InsertCard(db *mgo.Database, collectionName string, cards map[string]GwentC
 		if factionID, ok := factionIDs[v.Faction]; ok {
 			c.Faction_id = factionID
 		} else {
-			queryResult := GenericCollection{}
+			queryResult := models.GenericCollection{}
 			db.C("factions").Find(bson.M{"name": v.Faction}).Select(bson.M{"_id": 1}).One(&queryResult)
 			factionIDs[v.Faction] = queryResult.ID
 			c.Faction_id = queryResult.ID
@@ -193,7 +199,7 @@ func InsertCard(db *mgo.Database, collectionName string, cards map[string]GwentC
 		if groupID, ok := groupIDs[v.Group]; ok {
 			c.Group_id = groupID
 		} else {
-			queryResult := GenericCollection{}
+			queryResult := models.GenericCollection{}
 			db.C("groups").Find(bson.M{"name": v.Group}).Select(bson.M{"_id": 1}).One(&queryResult)
 			groupIDs[v.Group] = queryResult.ID
 			c.Group_id = queryResult.ID
@@ -207,7 +213,7 @@ func InsertCard(db *mgo.Database, collectionName string, cards map[string]GwentC
 				if categoryID, ok := categoryIDs[category]; ok {
 					c.Categories_id = append(c.Categories_id, categoryID)
 				} else {
-					queryResult := GenericCollection{}
+					queryResult := models.GenericCollection{}
 					db.C("categories").Find(bson.M{"name": category}).Select(bson.M{"_id": 1}).One(&queryResult)
 					categoryIDs[category] = queryResult.ID
 					c.Categories_id = append(c.Categories_id, queryResult.ID)
@@ -226,7 +232,7 @@ func InsertCard(db *mgo.Database, collectionName string, cards map[string]GwentC
 	}
 }
 
-func InsertVariation(db *mgo.Database, collectionName string, cards map[string]GwentCard) {
+func (c ReposClient) InsertVariation(db *mgo.Database, collectionName string, cards map[string]models.GwentCard) {
 	domainUUID, err := uuid.FromString(DOMAIN)
 	if err != nil {
 		log.Fatal("DomainUUID error: ", err)
@@ -258,37 +264,39 @@ func InsertVariation(db *mgo.Database, collectionName string, cards map[string]G
 	bulk.Unordered()
 
 	for _, card := range cards {
-		queryResult := Card{}
+		queryResult := models.Card{}
 		db.C("cards").Find(bson.M{"name.en-US": card.Name["en-US"]}).Select(bson.M{"_id": 1}).One(&queryResult)
-		artUrl := GetArtUrl(card.Name["en-US"])
+		artUrl := common.GetArtUrl(card.Name["en-US"])
 		//log.Println(artUrl)
 		thumbnailUrl := artUrl + "-thumbnail.png"
+		mediumSizeUrl := artUrl + "-medium.png"
 		originalSizeUrl := artUrl + "-full.png"
 
 		for _, variation := range card.Variations {
 			// UUID : name + availability
-			v := Variation{
+			v := models.Variation{
 				UUID:         uuid.NewV5(domainUUID, card.Name["en-US"]+variation.Availability).Bytes(),
 				Availability: variation.Availability,
 				Rarity:       variation.Rarity,
-				Craft: Cost{
+				Craft: models.Cost{
 					Normal:  variation.Craft.Standard,
 					Premium: variation.Craft.Premium,
 				},
-				Mill: Cost{
+				Mill: models.Cost{
 					Normal:  variation.Mill.Standard,
 					Premium: variation.Mill.Premium,
 				},
-				Art: Art{
-					FullsizeImage:  &originalSizeUrl,
-					ThumbnailImage: thumbnailUrl,
-					Artist:         variation.Art.Artist,
+				Art: models.Art{
+					FullsizeImage:   &originalSizeUrl,
+					MediumsizeImage: mediumSizeUrl,
+					ThumbnailImage:  thumbnailUrl,
+					Artist:          variation.Art.Artist,
 				},
 				Last_Modified: time.Now().UTC(),
 			}
 			v.Card_id = queryResult.ID
 
-			queryRarityResult := GenericCollection{}
+			queryRarityResult := models.GenericCollection{}
 			db.C("rarities").Find(bson.M{"name": v.Rarity}).Select(bson.M{"_id": 1}).One(&queryRarityResult)
 
 			v.Rarity_id = queryRarityResult.ID

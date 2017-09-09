@@ -4,13 +4,15 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/rainycape/unidecode"
+	"github.com/GwentAPI/gwentapi/manipulator/common"
+	db "github.com/GwentAPI/gwentapi/manipulator/database"
+	"github.com/GwentAPI/gwentapi/manipulator/models"
 	"io"
 	"log"
 	"net/http"
 	"os"
 	"path/filepath"
-	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -26,27 +28,30 @@ func (i *stringslice) Set(value string) error {
 	return nil
 }
 
+var repo db.ReposClient
 var filePath string = ""
 var addrs stringslice
-var database string
+var databaseName string
 var useSSL bool
 var downloadImage bool
-var wg sync.WaitGroup
+var downloadOnly bool
 var timeout time.Duration = 15 * time.Second
 
-const DOMAIN string = "46bf3452-28e7-482c-9bbf-df053873b021"
+const MAX_PARALLEL_DOWNLOAD int = 50
 
 func init() {
 	flag.StringVar(&filePath, "input", "", "Path to input file")
 	flag.Var(&addrs, "addrs", "List of mongoDB server addresses. Default to localhost on standard mongoDB port")
 	flag.BoolVar(&useSSL, "ssl", false, "Set to true if you require SSL to connect to the database")
-	flag.StringVar(&database, "db", "", "Set the database to use. 'test' is used if not specified")
-	flag.BoolVar(&downloadImage, "artwork", false, "Set to true to download the artworks images")
+	flag.StringVar(&databaseName, "db", "", "Set the database to use. 'test' is used if not specified")
+	flag.BoolVar(&downloadImage, "download", false, "Set to download the artworks images")
+	flag.BoolVar(&downloadOnly, "downloadOnly", false, "Set to only download the artworks image without running db insertion")
 
 	flag.Parse()
 }
 
 func main() {
+	var wg sync.WaitGroup
 	start := time.Now()
 	if addrs == nil {
 		addrs = []string{"localhost"}
@@ -56,16 +61,16 @@ func main() {
 		os.Exit(0)
 	}
 
-	var definition map[string]GwentCard
+	var definition map[string]models.GwentCard
 	readData(&definition)
-	work(definition)
+	work(definition, &wg)
 
 	wg.Wait()
 	elapsed := time.Since(start)
 	log.Printf("Finished in %s", elapsed)
 }
 
-func readData(definition *map[string]GwentCard) {
+func readData(definition *map[string]models.GwentCard) {
 	log.Println("Reading file...")
 	file, err := os.Open(filePath)
 	if err != nil {
@@ -82,7 +87,11 @@ func readData(definition *map[string]GwentCard) {
 	log.Println("Done")
 }
 
-func work(definition map[string]GwentCard) {
+func work(definition map[string]models.GwentCard, wg *sync.WaitGroup) {
+	downloadQueue := make(chan models.GwentCard)
+	wg.Add(1)
+	go startDownload(downloadQueue, wg)
+
 	groups := make(map[string]struct{})
 	rarities := make(map[string]struct{})
 	factions := make(map[string]struct{})
@@ -93,36 +102,38 @@ func work(definition map[string]GwentCard) {
 			continue
 		}
 		renameScoiatael(definition, k)
-		if downloadImage {
-			queueDownload(definition[k])
+		if downloadImage || downloadOnly {
+			downloadQueue <- definition[k]
 		}
 		collectGroup(groups, definition[k])
 		collectRarity(rarities, definition[k])
 		collectFaction(factions, definition[k])
 		collectCategories(categories, definition[k])
 	}
+	close(downloadQueue)
+	if !downloadOnly {
+		log.Println("Attempting to establish mongoDB session...")
+		session, err := repo.CreateSession(addrs, databaseName, db.Authentication{}, useSSL, timeout)
+		defer session.Close()
+		if err != nil {
+			log.Fatal("Failed to establish mongoDB connection: ", err)
+		}
+		database := session.DB("")
 
-	log.Println("Attempting to establish mongoDB session...")
-	session, err := CreateSession(addrs, database, Authentication{}, useSSL, timeout)
-	defer session.Close()
-	if err != nil {
-		log.Fatal("Failed to establish mongoDB connection: ", err)
+		log.Println("Upserting a bunch of collections...")
+		repo.InsertGenericCollection(database, "groups", groups)
+		repo.InsertGenericCollection(database, "rarities", rarities)
+		repo.InsertGenericCollection(database, "factions", factions)
+		repo.InsertGenericCollection(database, "categories", categories)
+		log.Println("Upserting cards...")
+		repo.InsertCard(database, "cards", definition)
+		log.Println("Upserting variations...")
+		repo.InsertVariation(database, "variations", definition)
+		log.Println("Done")
 	}
-	database := session.DB("")
-
-	log.Println("Upserting a bunch of collections...")
-	InsertGenericCollection(database, "groups", groups)
-	InsertGenericCollection(database, "rarities", rarities)
-	InsertGenericCollection(database, "factions", factions)
-	InsertGenericCollection(database, "categories", categories)
-	log.Println("Upserting cards...")
-	InsertCard(database, "cards", definition)
-	log.Println("Upserting variations...")
-	InsertVariation(database, "variations", definition)
-	log.Println("Done")
 }
 
-func deleteUnreleased(input map[string]GwentCard, key string) bool {
+func deleteUnreleased(input map[string]models.GwentCard, key string) bool {
 	// Released is an artificial field that was added to the file
 	// We do check it but we still verify each individual variation.
 	if !input[key].Released {
@@ -154,13 +165,13 @@ func deleteUnreleased(input map[string]GwentCard, key string) bool {
 	return false
 }
 
-func collectGroup(groups map[string]struct{}, input GwentCard) {
+func collectGroup(groups map[string]struct{}, input models.GwentCard) {
 	if _, ok := groups[input.Group]; !ok {
 		groups[input.Group] = struct{}{}
 	}
 }
 
-func collectRarity(rarities map[string]struct{}, input GwentCard) {
+func collectRarity(rarities map[string]struct{}, input models.GwentCard) {
 	for _, variation := range input.Variations {
 		if _, ok := rarities[variation.Rarity]; !ok {
 			rarities[variation.Rarity] = struct{}{}
@@ -168,13 +179,13 @@ func collectRarity(rarities map[string]struct{}, input GwentCard) {
 	}
 }
 
-func collectFaction(factions map[string]struct{}, input GwentCard) {
+func collectFaction(factions map[string]struct{}, input models.GwentCard) {
 	if _, ok := factions[input.Faction]; !ok {
 		factions[input.Faction] = struct{}{}
 	}
 }
 
-func collectCategories(categories map[string]struct{}, input GwentCard) {
+func collectCategories(categories map[string]struct{}, input models.GwentCard) {
 	for _, category := range input.Categories {
 		if _, ok := categories[category]; !ok {
 			categories[category] = struct{}{}
@@ -183,7 +194,7 @@ func collectCategories(categories map[string]struct{}, input GwentCard) {
 }
 
 // The data file doesn't have Scoia'tael spelled correctly, so we rename it.
-func renameScoiatael(input map[string]GwentCard, k string) {
+func renameScoiatael(input map[string]models.GwentCard, k string) {
 	if input[k].Faction == "Scoiatael" {
 		tmp := input[k]
 		tmp.Faction = "Scoia'tael"
@@ -191,12 +202,25 @@ func renameScoiatael(input map[string]GwentCard, k string) {
 	}
 }
 
-func queueDownload(card GwentCard) {
-	for _, variation := range card.Variations {
-		wg.Add(1)
-		fileName := GetArtUrl(card.Name["en-US"]) + "-thumbnail.png"
-		go download_file(variation.Art.Medium, fileName, &wg)
+func startDownload(queue <-chan models.GwentCard, wg *sync.WaitGroup) {
+	downloadGuard := make(chan struct{}, MAX_PARALLEL_DOWNLOAD)
+	for card := range queue {
+		baseFileName := common.GetArtUrl(card.Name["en-US"])
+		var noVariation int = 0
+		for _, variation := range card.Variations {
+			wg.Add(2)
+			noVariation++
+			downloadGuard <- struct{}{}
+			downloadGuard <- struct{}{}
+			go func(variation models.GwentVariation, noVariation int) {
+				download_file(variation.Art.Thumbnail, baseFileName+"-"+strconv.Itoa(noVariation)+"-thumbnail.png", wg)
+				download_file(variation.Art.Medium, baseFileName+"-"+strconv.Itoa(noVariation)+"-medium.png", wg)
+				<-downloadGuard
+				<-downloadGuard
+			}(variation, noVariation)
+		}
 	}
+	wg.Done()
 }
 
 func download_file(url string, fileName string, wg *sync.WaitGroup) {
@@ -212,6 +236,9 @@ func download_file(url string, fileName string, wg *sync.WaitGroup) {
 		if e != nil {
 			log.Println("Error downloading file: ", fileName, e)
 			retry++
+			if retry == MAX_RETRY {
+				log.Println("Skipping: ", fileName, " Reason: failed too many time.")
+			}
 		} else {
 			dir, _ := filepath.Abs("./artworks/")
 			if _, err := os.Stat(dir); os.IsNotExist(err) {
@@ -236,10 +263,4 @@ func download_file(url string, fileName string, wg *sync.WaitGroup) {
 		}
 	}
 	wg.Done()
-}
-
-func GetArtUrl(cardName string) string {
-	var re = regexp.MustCompile("[^a-z0-9]+")
-	cardName = unidecode.Unidecode(cardName)
-	return strings.Trim(re.ReplaceAllString(strings.ToLower(cardName), "-"), "-")
 }

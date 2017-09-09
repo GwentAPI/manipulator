@@ -1,4 +1,4 @@
-package main
+package models
 
 type GwentCard struct {
 	Categories []string
