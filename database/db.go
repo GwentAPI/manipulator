@@ -273,7 +273,7 @@ func (c ReposClient) InsertVariation(db *mgo.Database, collectionName string, ca
 		for _, variation := range card.Variations {
 			// UUID : name + availability
 			numVariation++
-			//thumbnailUrl := artUrl + "-thumbnail.png"
+			thumbnailUrl := artUrl + "-" + strconv.Itoa(numVariation) + "-thumbnail.png"
 			mediumSizeUrl := artUrl + "-" + strconv.Itoa(numVariation) + "-medium.png"
 			originalSizeUrl := artUrl + "-" + strconv.Itoa(numVariation) + "-full.png"
 
@@ -292,7 +292,7 @@ func (c ReposClient) InsertVariation(db *mgo.Database, collectionName string, ca
 				Art: models.Art{
 					FullsizeImage:   &originalSizeUrl,
 					MediumsizeImage: mediumSizeUrl,
-					ThumbnailImage:  mediumSizeUrl,
+					ThumbnailImage:  thumbnailUrl,
 					Artist:          variation.Art.Artist,
 				},
 				Last_Modified: time.Now().UTC(),
