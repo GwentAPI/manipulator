@@ -5,7 +5,6 @@ import (
 	"time"
 )
 
-
 type GenericCollection struct {
 	ID            bson.ObjectId "_id,omitempty"
 	Name          string        `bson:"name"`
@@ -50,8 +49,8 @@ type Cost struct {
 }
 
 type Art struct {
-	Artist         string  "artist,omitempty"
-	FullsizeImage  *string "fullsizeImage"
-	MediumsizeImage string "mediumsizeImage"
-	ThumbnailImage string  "thumbnailImage"
+	Artist          string  "artist,omitempty"
+	FullsizeImage   *string "fullsizeImage"
+	MediumsizeImage string  "mediumsizeImage"
+	ThumbnailImage  string  "thumbnailImage"
 }
