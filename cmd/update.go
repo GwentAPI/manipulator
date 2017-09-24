@@ -53,7 +53,7 @@ func init() {
 	// and all subcommands, e.g.:
 	updateCmd.PersistentFlags().StringSliceVar(&addrs, "addrs", []string{"localhost"}, "List of mongoDB server addresses on standard mongoDB port.")
 	updateCmd.PersistentFlags().BoolVar(&useSSL, "ssl", false, "Set to true if you require SSL to connect to the database")
-	updateCmd.PersistentFlags().StringVar(&databaseName, "db", "", "Use default mongoDb database if not specified (test).")
+	updateCmd.PersistentFlags().StringVar(&databaseName, "db", "", "Use default mongoDb database if not specified (default test).")
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
 	// updateCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
@@ -62,10 +62,10 @@ func init() {
 func updateDb(container *DataContainer) error {
 	log.Println("Attempting to establish mongoDB session...")
 	session, err := repo.CreateSession(addrs, databaseName, db.Authentication{}, useSSL, timeout)
-	defer session.Close()
 	if err != nil {
 		return fmt.Errorf("Failed to establish mongoDB connection:: %s", err)
 	}
+	defer session.Close()
 	database := session.DB("")
 	log.Println("Upserting a bunch of collections...")
 	repo.InsertGenericCollection(database, "groups", container.Groups)
