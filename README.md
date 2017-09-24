@@ -7,7 +7,7 @@ This application is a tool to quickly perform maintenance operation on GwentAPI 
 
 When a new release of Gwent happens you will have to generate the json file containing the card definitions in the standard format as defined by *Gwent Community Developers*.
 
-Once you have the file, you can use*manipulator*to update the GwentAPI service.
+Once you have the file, you can use *manipulator* to update the GwentAPI service.
 
 Before the current database is updated, the tool will create a backup of the databases of your local mongos instance under ``./backup/``.
 
@@ -24,7 +24,7 @@ If you are running a replica set, you can supply a list of address like so:
 ```
 ./manipulator update --input <pathToFile.json> --db gwentapi --addrs \
 "host1[:porthost1],
-host2[:porthost2],,
+host2[:porthost2],
 host3[:porthost3]"
 ```
 
