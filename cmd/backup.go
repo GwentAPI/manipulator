@@ -1,7 +1,10 @@
 package cmd
 
 import (
+	db "github.com/GwentAPI/gwentapi/manipulator/database"
 	"github.com/spf13/cobra"
+	"strings"
+	"time"
 )
 
 // backupCmd represents the backup command
@@ -12,6 +15,13 @@ var backupCmd = &cobra.Command{
 mongodump will be use to backup the databases found on the system.
 The content will be gziped and archived.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		if len(mongoDBAuthentication.Username) > 0 {
+			flattenedHost := strings.Join(mongoDBAuthentication.Host[:], ",")
+			if err := backupWithAuthentication(flattenedHost, mongoDBAuthentication.Username, mongoDBAuthentication.Password, mongoDBAuthentication.AuthenticationDatabase, mongoDBAuthentication.UseSSL); err != nil {
+				return err
+			}
+			return nil
+		}
 		if err := backupDb(); err != nil {
 			return err
 		}
@@ -21,14 +31,13 @@ The content will be gziped and archived.`,
 
 func init() {
 	RootCmd.AddCommand(backupCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// backupCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// backupCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	mongoDBAuthentication = db.MongoConnectionSettings{
+		Timeout: 15 * time.Second,
+	}
+	backupCmd.Flags().StringVar(&mongoDBAuthentication.Username, "u", "", "Username used for mongoDB authentication.")
+	backupCmd.Flags().StringVar(&mongoDBAuthentication.AuthenticationDatabase, "authenticationDatabase", "", "Authentication database for mongoDB.")
+	backupCmd.Flags().StringVar(&mongoDBAuthentication.Password, "p", "", "User password for mongoDB authentication.")
+	backupCmd.Flags().StringSliceVar(&mongoDBAuthentication.Host, "host", []string{"localhost"}, "Address to a remote mongos.")
+	// TODO: Don't use global var
+	backupCmd.Flags().BoolVar(&mongoDBAuthentication.UseSSL, "ssl", false, "Set to true if you require SSL to connect to the database")
 }

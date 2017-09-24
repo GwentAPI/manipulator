@@ -13,30 +13,34 @@ import (
 	"time"
 )
 
-type Authentication struct {
-	Source   string
-	Username string
-	Password string
-}
-
 const DOMAIN string = "46bf3452-28e7-482c-9bbf-df053873b021"
 
 type ReposClient struct{}
 
-func (c ReposClient) CreateSession(addrs []string, database string, authInfo Authentication, useSSl bool, timeout time.Duration) (*mgo.Session, error) {
+type MongoConnectionSettings struct {
+	Host                   []string
+	Db                     string
+	AuthenticationDatabase string
+	Username               string
+	Password               string
+	UseSSL                 bool
+	Timeout                time.Duration
+}
+
+func (c ReposClient) CreateSession(authInfo MongoConnectionSettings) (*mgo.Session, error) {
 
 	tlsConfig := &tls.Config{}
 
 	dialInfo := &mgo.DialInfo{
-		Addrs:    addrs,
-		Database: database,
-		Source:   authInfo.Source,
+		Addrs:    authInfo.Host,
+		Database: authInfo.Db,
+		Source:   authInfo.AuthenticationDatabase,
 		Username: authInfo.Username,
 		Password: authInfo.Password,
-		Timeout:  timeout,
+		Timeout:  authInfo.Timeout,
 	}
 
-	if useSSl {
+	if authInfo.UseSSL {
 		dialInfo.DialServer = func(addr *mgo.ServerAddr) (net.Conn, error) {
 			conn, err := tls.Dial("tcp", addr.String(), tlsConfig)
 			return conn, err

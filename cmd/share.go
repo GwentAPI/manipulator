@@ -3,6 +3,7 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	db "github.com/GwentAPI/gwentapi/manipulator/database"
 	"github.com/GwentAPI/gwentapi/manipulator/models"
 	"log"
 	"os"
@@ -12,11 +13,28 @@ import (
 
 const BACKUP_FOLDER string = "./backup/"
 
+var mongoDBAuthentication db.MongoConnectionSettings
+
 func backupDb() error {
 	t := time.Now()
 	format := "2006-01-02T15-04-05.000"
 	cmd := "mongodump"
 	args := []string{"--gzip", "--out", BACKUP_FOLDER + t.Format(format) + "/"}
+	if err := exec.Command(cmd, args...).Run(); err != nil {
+		return fmt.Errorf("Error while creating backup: %s", err)
+	}
+	log.Println("Database backup created.")
+	return nil
+}
+
+func backupWithAuthentication(host, userName, password, authDB string, useSSL bool) error {
+	t := time.Now()
+	format := "2006-01-02T15-04-05.000"
+	cmd := "mongodump"
+	args := []string{"--host", host, "-u", userName, "-p", password, "--authenticationDatabase", authDB, "--gzip", "--out", BACKUP_FOLDER + t.Format(format) + "/"}
+	if useSSL {
+		args = append(args, "--ssl")
+	}
 	if err := exec.Command(cmd, args...).Run(); err != nil {
 		return fmt.Errorf("Error while creating backup: %s", err)
 	}

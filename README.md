@@ -9,26 +9,24 @@ When a new release of Gwent happens you will have to generate the json file cont
 
 Once you have the file, you can use *manipulator* to update the GwentAPI service.
 
-Before the current database is updated, the tool will create a backup of the databases of your local mongos instance under ``./backup/``.
+Before the current database is updated, the tool will create a backup of the databases of your local mongod under ``./backup/``.
 
 ``./manipulator update --input <pathToFile.json> --db gwentapi``
 
 If the ``--db`` flag is not specified, the default database of mongoDB will be used: test.
 
-You may use the ``--ssl`` option to connect to the database with ssl. If your database is not accessible from localhost, you can specify an address with the ``--addrs`` flag.
+You may use the ``--ssl`` option to connect to the database with ssl. If your database is not accessible from localhost, you can specify different hosts with the ``--host`` flag.
 
-``./manipulator update --input <pathToFile.json> --db gwentapi --addrs "<myAddress>"``
+``./manipulator update --input <pathToFile.json> --db gwentapi --host <myAddress>``
 
-If you are running a replica set, you can supply a list of address like so:
+If you are running a replica set, you can supply a list of hosts like so:
 
 ```
-./manipulator update --input <pathToFile.json> --db gwentapi --addrs \
+./manipulator update --input <pathToFile.json> --db gwentapi --host \
 "host1[:porthost1],
 host2[:porthost2],
 host3[:porthost3]"
 ```
-
-**Warning:** Remote connection is a WIP. If you don't have a working mongos instance on your local machine the program will fail as it will attempt to create a backup of your local, non existing db.
 
 ## Download the new artworks
 
@@ -42,9 +40,13 @@ By default, the artwork will be saved under the ``./artworks/`` directory. You c
 
 ## Backup the database
 
-You can backup the databases of your local mongos instance without being in the process of updating the db:
+You can backup the databases of your local mongod without being in the process of updating the db:
 
 ``./manipulator backup``
+
+Or for a remote database (replica set supported):
+
+``./manipulator backup --u username --p password --authenticationDatabase admin --ssl --host "host1,host2,host3"``
 
 ## Additional help
 
@@ -52,9 +54,7 @@ You can run the ``--help`` flag on the program or on specific commands to learn 
 
 ## WIP and planned features
 
-* Basic user authentication with mongoDB.
 * Being able to specify backup destination.
-* Backup on remote connection.
 * Better backup archive structure to add contextual info like:
     
     * Which server was updated?
