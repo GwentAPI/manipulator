@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"sync"
+	"time"
 )
 
 const MAX_RETRY int = 3
@@ -25,11 +26,12 @@ var artworkCmd = &cobra.Command{
 	Short: "Download the artwork of the cards.",
 	Long:  `Download the artwork of the cards.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		fmt.Println("artwork called")
-		err := RootCmd.RunE(cmd, args)
+		start := time.Now()
+		result, err := parseData()
 		if err != nil {
-			return err
+			return fmt.Errorf("Error while parsing the data: %s", err)
 		}
+		dataContainer = result
 		downloadQueue := make(chan models.GwentCard)
 		wg.Add(1)
 		go startDownload(downloadQueue, &wg)
@@ -39,6 +41,8 @@ var artworkCmd = &cobra.Command{
 		wg.Done()
 		close(downloadQueue)
 		wg.Wait()
+		elapsed := time.Since(start)
+		log.Printf("Finished in %s", elapsed)
 		return nil
 	},
 }

@@ -23,12 +23,23 @@ var updateCmd = &cobra.Command{
 It will override all data already present and will
 ensure that indexes are valid.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		fmt.Println("update called")
-		err := RootCmd.RunE(cmd, args)
-		if err != nil {
+		start := time.Now()
+		if addrs == nil {
+			addrs = []string{"localhost"}
+		}
+		if err := backupDb(); err != nil {
 			return err
 		}
-		updateDb(dataContainer)
+		result, err := parseData()
+		if err != nil {
+			return fmt.Errorf("Error while parsing the data: %s", err)
+		}
+		dataContainer = result
+		if err := updateDb(dataContainer); err != nil {
+			return err
+		}
+		elapsed := time.Since(start)
+		log.Printf("Finished in %s", elapsed)
 		return nil
 	},
 }
@@ -53,7 +64,7 @@ func updateDb(container *DataContainer) error {
 	session, err := repo.CreateSession(addrs, databaseName, db.Authentication{}, useSSL, timeout)
 	defer session.Close()
 	if err != nil {
-		log.Fatal("Failed to establish mongoDB connection: ", err)
+		return fmt.Errorf("Failed to establish mongoDB connection:: %s", err)
 	}
 	database := session.DB("")
 	log.Println("Upserting a bunch of collections...")
