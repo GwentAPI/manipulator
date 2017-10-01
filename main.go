@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/GwentAPI/gwentapi/manipulator/cmd"
+	"github.com/GwentAPI/manipulator/cmd"
 )
 
 func main() {

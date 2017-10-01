@@ -2,8 +2,8 @@ package database
 
 import (
 	"crypto/tls"
-	"github.com/GwentAPI/gwentapi/manipulator/common"
-	"github.com/GwentAPI/gwentapi/manipulator/models"
+	"github.com/GwentAPI/manipulator/common"
+	"github.com/GwentAPI/manipulator/models"
 	"github.com/satori/go.uuid"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -105,20 +105,6 @@ func (c ReposClient) InsertGenericCollection(db *mgo.Database, collectionName st
 	}
 }
 
-func (c ReposClient) EnsureSimpleUniqueIndex(collection *mgo.Collection, key string, name string) error {
-	index := mgo.Index{
-		Key:        []string{key},
-		Unique:     true,
-		Background: true,
-		Name:       name,
-	}
-	err := collection.EnsureIndex(index)
-	if err != nil {
-		log.Println("Problem with index key ", key, " with name ", name, " : ", err)
-	}
-	return err
-}
-
 func (c ReposClient) EnsureSimpleIndex(collection *mgo.Collection, key string, name string, isUnique bool) error {
 	index := mgo.Index{
 		Key:        []string{key},
@@ -141,23 +127,22 @@ func (c ReposClient) InsertCard(db *mgo.Database, collectionName string, cards m
 
 	collection := db.C(collectionName)
 
-	errNameIndex := c.EnsureSimpleUniqueIndex(collection, "name.en-US", "name.en-US")
-	errUuidIndex := c.EnsureSimpleUniqueIndex(collection, "uuid", "uuid")
+	errNameIndex := c.EnsureSimpleIndex(collection, "name.en-US", "name.en-US", false)
+	errUuidIndex := c.EnsureSimpleIndex(collection, "uuid", "uuid", true)
 	if errNameIndex != nil || errUuidIndex != nil {
 		log.Fatal("Error creating index: ", errNameIndex, " ", errUuidIndex)
 	}
-	c.EnsureSimpleUniqueIndex(collection, "name.de-DE", "name.de-DE")
-	c.EnsureSimpleUniqueIndex(collection, "name.fr-FR", "name.fr-FR")
-	c.EnsureSimpleUniqueIndex(collection, "name.pl-PL", "name.pl-PL")
-	c.EnsureSimpleUniqueIndex(collection, "name.pt-BR", "name.pt-BR")
-	// Special snowflakes that actually have duplicates names for the same localization.
+	c.EnsureSimpleIndex(collection, "name.de-DE", "name.de-DE", false)
+	c.EnsureSimpleIndex(collection, "name.fr-FR", "name.fr-FR", false)
+	c.EnsureSimpleIndex(collection, "name.pl-PL", "name.pl-PL", false)
+	c.EnsureSimpleIndex(collection, "name.pt-BR", "name.pt-BR", false)
 	c.EnsureSimpleIndex(collection, "name.zh-TW", "name.zh-TW", false)
-	c.EnsureSimpleUniqueIndex(collection, "name.es-ES", "name.es-ES")
-	c.EnsureSimpleUniqueIndex(collection, "name.es-MX", "name.es-MX")
-	c.EnsureSimpleUniqueIndex(collection, "name.it-IT", "name.it-IT")
-	c.EnsureSimpleUniqueIndex(collection, "name.ja-JP", "name.ja-JP")
-	c.EnsureSimpleUniqueIndex(collection, "name.ru-RU", "name.ru-RU")
-	c.EnsureSimpleUniqueIndex(collection, "name.zh-CN", "name.zh-CN")
+	c.EnsureSimpleIndex(collection, "name.es-ES", "name.es-ES", false)
+	c.EnsureSimpleIndex(collection, "name.es-MX", "name.es-MX", false)
+	c.EnsureSimpleIndex(collection, "name.it-IT", "name.it-IT", false)
+	c.EnsureSimpleIndex(collection, "name.ja-JP", "name.ja-JP", false)
+	c.EnsureSimpleIndex(collection, "name.ru-RU", "name.ru-RU", false)
+	c.EnsureSimpleIndex(collection, "name.zh-CN", "name.zh-CN", false)
 
 	bulk := collection.Bulk()
 	bulk.Unordered()

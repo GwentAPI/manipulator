@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	db "github.com/GwentAPI/gwentapi/manipulator/database"
+	db "github.com/GwentAPI/manipulator/database"
 	"github.com/spf13/cobra"
 	"strings"
 	"time"

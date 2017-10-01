@@ -2,8 +2,8 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/GwentAPI/gwentapi/manipulator/common"
-	"github.com/GwentAPI/gwentapi/manipulator/models"
+	"github.com/GwentAPI/manipulator/common"
+	"github.com/GwentAPI/manipulator/models"
 	"github.com/spf13/cobra"
 	"io"
 	"log"

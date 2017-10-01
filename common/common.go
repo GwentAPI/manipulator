@@ -1,7 +1,6 @@
 package common
 
 import (
-	//"github.com/GwentAPI/gwentapi/manipulator/models"
 	"github.com/rainycape/unidecode"
 	"regexp"
 	"strings"

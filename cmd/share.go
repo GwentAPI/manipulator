@@ -3,8 +3,8 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
-	db "github.com/GwentAPI/gwentapi/manipulator/database"
-	"github.com/GwentAPI/gwentapi/manipulator/models"
+	db "github.com/GwentAPI/manipulator/database"
+	"github.com/GwentAPI/manipulator/models"
 	"log"
 	"os"
 	"os/exec"
