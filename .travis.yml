@@ -1,0 +1,25 @@
+language: go
+go:
+- 1.9.x
+before_install:
+- go get -u github.com/golang/dep/cmd/dep
+install:
+- dep ensure
+script:
+- go build -ldflags="-s -X main.version=$TRAVIS_TAG" -o manipulator-$TRAVIS_TAG.linux-amd64
+  github.com/GwentAPI/manipulator
+- GOOS=windows GOARCH=amd64 go build -ldflags="-s -X main.version=$TRAVIS_TAG" -o
+  manipulator-$TRAVIS_TAG.windows-amd64.exe github.com/GwentAPI/manipulator
+deploy:
+  provider: releases
+  skip_cleanup: true
+  prerelease: true
+  name: manipulator $TRAVIS_TAG
+  api_key:
+    secure: Id/yKAe3DCYzGdwrhp7PhnThTi2Z3vrZli4Xag948qVmcxtZE6T87hekP3Ahhd+e7RK9USw65Y7iFPoFr+CVgC7VVfYG1Bh5vQHwj23Wu7oIKQrWix4g1Pm47t6OXUFkpyF8GuAcrKkvim1JWJw8CteyT3ybg9NaYX+odjM96KhDJIjLt8y30w5CNa6DjdYxOqHHYozEq5t3DiAfsSBHyK03wDhOHltKcPj5H2XVqZdvrYQEADrQWj1plQ6D8+61PtqaTeXnSwm9bCYzkarf6dguz0wJ133N/02Rs7wLfZnbAU0YjNh7lhJo3xvAxJ6xUMKXTJv0sP3NWcBx+V5+NBCFzd4rGgFKv3/OxofG9OUzilrl8kOBiH2z8mOt+/FoNwfsLqnrFlKaalQ5zx6A8A3D8PXchOK+WXApEoCgun4UlPlRSEEJdKwossd4X9SprXM4dPdknl6JPHVd1X5ShgrxKdqtS1I3mAr2iBAQbTEsSO0d8GjfJ5aB4NY1z5qlIMym1EkYIQhTsOD1R/RzZFTT4D0JkBLeDGKEwfcW4v7DP63NgHTNiWoFPoin6F2IwcPzX0TMTb00pSca9dr16gDgiTLr9G8rVGQ+t3wnCr8F15iiXO7lUL+2p4gqUvRBQ2gaLj4cAzEknkZnyN9LnS4L65lu189zI7uQEh1i77I=
+  file: 
+  - manipulator-$TRAVIS_TAG.linux-amd64
+  - manipulator-$TRAVIS_TAG.windows-amd64.exe
+  on:
+    repo: GwentAPI/manipulator
+    tags: true
