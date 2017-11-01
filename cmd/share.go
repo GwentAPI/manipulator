@@ -15,11 +15,11 @@ const BACKUP_FOLDER string = "./backup/"
 
 var mongoDBAuthentication db.MongoConnectionSettings
 
-func backupDb() error {
+func backupDb(host string) error {
 	t := time.Now()
 	format := "2006-01-02T15-04-05.000"
 	cmd := "mongodump"
-	args := []string{"--gzip", "--out", BACKUP_FOLDER + t.Format(format) + "/"}
+	args := []string{"--host", host,"--gzip", "--out", BACKUP_FOLDER + t.Format(format) + "/"}
 	if err := exec.Command(cmd, args...).Run(); err != nil {
 		return fmt.Errorf("Error while creating backup: %s", err)
 	}

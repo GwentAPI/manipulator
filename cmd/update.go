@@ -28,13 +28,13 @@ ensure that indexes are valid.`,
 		if err != nil {
 			return fmt.Errorf("Error while parsing the data: %s", err)
 		}
+		flattenedHost := strings.Join(mongoDBAuthentication.Host[:], ",")
 		if len(mongoDBAuthentication.Username) > 0 {
-			flattenedHost := strings.Join(mongoDBAuthentication.Host[:], ",")
 			if err := backupWithAuthentication(flattenedHost, mongoDBAuthentication.Username, mongoDBAuthentication.Password, mongoDBAuthentication.AuthenticationDatabase, mongoDBAuthentication.UseSSL); err != nil {
 				return err
 			}
 		} else {
-			if err := backupDb(); err != nil {
+			if err := backupDb(flattenedHost); err != nil {
 				return err
 			}
 		}

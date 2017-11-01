@@ -15,14 +15,14 @@ var backupCmd = &cobra.Command{
 mongodump will be use to backup the databases found on the system.
 The content will be gziped and archived.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		flattenedHost := strings.Join(mongoDBAuthentication.Host[:], ",")
 		if len(mongoDBAuthentication.Username) > 0 {
-			flattenedHost := strings.Join(mongoDBAuthentication.Host[:], ",")
 			if err := backupWithAuthentication(flattenedHost, mongoDBAuthentication.Username, mongoDBAuthentication.Password, mongoDBAuthentication.AuthenticationDatabase, mongoDBAuthentication.UseSSL); err != nil {
 				return err
 			}
 			return nil
 		}
-		if err := backupDb(); err != nil {
+		if err := backupDb(flattenedHost); err != nil {
 			return err
 		}
 		return nil
